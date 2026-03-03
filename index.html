@@ -2,10 +2,10 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Stok Strip Pro - Final</title>
     <style>
-        /* CSS REFINED - FIXED SCROLLING */
+        /* CSS REFINED - WITH PINCH ZOOM */
         * { 
             margin: 0; 
             padding: 0; 
@@ -310,7 +310,7 @@
             justify-content: center;
         }
 
-        /* MODAL ZOOM - FIXED */
+        /* MODAL ZOOM - WITH PINCH ZOOM SUPPORT */
         .modal-full { 
             display: none; 
             position: fixed; 
@@ -320,6 +320,7 @@
             height: 100%; 
             background: rgba(0,0,0,0.95); 
             z-index: 3000; 
+            touch-action: pan-x pan-y; /* Allow touch gestures */
         }
         
         .close-full { 
@@ -338,6 +339,11 @@
             justify-content: center;
             background: rgba(255,255,255,0.2);
             border-radius: 50%;
+            transition: background 0.3s;
+        }
+        
+        .close-full:active {
+            background: rgba(255,255,255,0.4);
         }
         
         .slide-container { 
@@ -347,6 +353,7 @@
             overflow-x: auto; 
             scroll-snap-type: x mandatory;
             -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
         
         .slide-item { 
@@ -356,13 +363,21 @@
             align-items: center; 
             justify-content: center; 
             scroll-snap-align: start; 
+            position: relative;
         }
         
-        .slide-item img { 
-            max-width: 90%; 
-            max-height: 80vh; 
-            object-fit: contain; 
-            border-radius: 8px;
+        .zoomable-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.1s ease;
+            transform-origin: center center;
+            cursor: zoom-in;
+            touch-action: none; /* Prevent default touch actions for zoom container */
+        }
+        
+        .zoomable-image.zoomed {
+            cursor: zoom-out;
         }
         
         .image-counter {
@@ -376,6 +391,7 @@
             border-radius: 20px;
             font-size: 0.9rem;
             z-index: 3200;
+            pointer-events: none; /* Allow clicks to pass through */
         }
 
         /* BOTTOM NAV */
@@ -502,7 +518,7 @@
     </div>
 </div>
 
-<!-- FIXED ZOOM MODAL -->
+<!-- ZOOM MODAL WITH PINCH SUPPORT -->
 <div id="fullModal" class="modal-full">
     <span class="close-full" onclick="closeZoom()">&times;</span>
     <div class="slide-container" id="slide-wrap"></div>
@@ -522,11 +538,10 @@
     let db = JSON.parse(localStorage.getItem('stok_strip_v9')) || [];
     let curCat = "HONDA";
     let img1 = "", img2 = "";
-
-    // Debug function
-    function debug(message) {
-        console.log(message);
-    }
+    
+    // Zoom state
+    let currentZoomScale = 1;
+    let currentImage = null;
 
     function toggleMenu() { 
         document.getElementById('menuDropdown').classList.toggle('show'); 
@@ -541,25 +556,100 @@
         }
     });
 
-    // --- FIXED ZOOM FUNCTION ---
+    // --- PINCH ZOOM FUNCTIONS ---
+    function initializePinchZoom(imgElement) {
+        if (!imgElement) return;
+        
+        let scale = 1;
+        let startDistance = 0;
+        
+        // Remove any existing event listeners
+        imgElement.removeEventListener('touchstart', handleTouchStart);
+        imgElement.removeEventListener('touchmove', handleTouchMove);
+        imgElement.removeEventListener('touchend', handleTouchEnd);
+        
+        // Add touch event listeners
+        imgElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+        imgElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+        imgElement.addEventListener('touchend', handleTouchEnd);
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                // Two fingers - start pinch zoom
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                startDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                currentZoomScale = scale;
+            }
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                // Two fingers - pinch zoom
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                
+                if (startDistance > 0) {
+                    // Calculate new scale (limited between 1 and 4)
+                    scale = Math.min(4, Math.max(1, currentZoomScale * (currentDistance / startDistance)));
+                    
+                    // Apply transform
+                    imgElement.style.transform = `scale(${scale})`;
+                    
+                    // Add zoomed class for cursor style
+                    if (scale > 1) {
+                        imgElement.classList.add('zoomed');
+                    } else {
+                        imgElement.classList.remove('zoomed');
+                    }
+                }
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            if (e.touches.length < 2) {
+                startDistance = 0;
+            }
+        }
+        
+        // Double tap to reset zoom
+        imgElement.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+            scale = 1;
+            imgElement.style.transform = 'scale(1)';
+            imgElement.classList.remove('zoomed');
+        });
+    }
+
+    // --- ZOOM FUNCTION ---
     function showZoom(id) {
-        debug('showZoom called with id: ' + id);
+        console.log('showZoom called with id:', id);
         
         // Find product
         const p = db.find(x => x.id === id);
         if(!p) {
-            debug('Product not found');
+            console.log('Product not found');
             return;
         }
         
-        debug('Product found: ' + p.nama);
+        console.log('Product found:', p.nama);
         
         // Prepare images array
         let images = [];
         if (p.img1) images.push(p.img1);
         if (p.img2 && p.img2.trim() !== '') images.push(p.img2);
         
-        debug('Number of images: ' + images.length);
+        console.log('Number of images:', images.length);
         
         if (images.length === 0) {
             alert('Tidak ada foto untuk produk ini');
@@ -569,7 +659,7 @@
         // Create slides
         const slideWrap = document.getElementById('slide-wrap');
         if (!slideWrap) {
-            debug('slide-wrap element not found');
+            console.log('slide-wrap element not found');
             return;
         }
         
@@ -577,13 +667,24 @@
         images.forEach((src, index) => {
             slidesHtml += `
                 <div class="slide-item">
-                    <img src="${src}" alt="Product image ${index + 1}">
+                    <img src="${src}" 
+                         class="zoomable-image" 
+                         alt="Product image ${index + 1}"
+                         data-index="${index}">
                     ${images.length > 1 ? `<div class="image-counter">${index + 1} / ${images.length}</div>` : ''}
                 </div>
             `;
         });
         
         slideWrap.innerHTML = slidesHtml;
+        
+        // Initialize pinch zoom for all images
+        setTimeout(() => {
+            const images = document.querySelectorAll('.zoomable-image');
+            images.forEach(img => {
+                initializePinchZoom(img);
+            });
+        }, 100);
         
         // Show modal
         const modal = document.getElementById('fullModal');
@@ -592,14 +693,22 @@
         // Prevent body scroll
         document.body.style.overflow = 'hidden';
         
-        debug('Zoom modal displayed');
+        console.log('Zoom modal displayed');
     }
     
     function closeZoom() { 
         const modal = document.getElementById('fullModal');
         modal.style.display = 'none';
         document.body.style.overflow = ''; // Restore scrolling
-        debug('Zoom modal closed');
+        
+        // Reset all zoom levels
+        const images = document.querySelectorAll('.zoomable-image');
+        images.forEach(img => {
+            img.style.transform = 'scale(1)';
+            img.classList.remove('zoomed');
+        });
+        
+        console.log('Zoom modal closed');
     }
 
     // Handle keyboard events for zoom modal
@@ -667,12 +776,12 @@
                 imgObj.onload = function() {
                     // Compress image
                     const canvas = document.createElement('canvas');
-                    const maxW = 500;
+                    const maxW = 800; // Increased max width for better zoom quality
                     const scale = maxW / imgObj.width;
                     canvas.width = maxW; 
                     canvas.height = imgObj.height * scale;
                     canvas.getContext('2d').drawImage(imgObj, 0, 0, canvas.width, canvas.height);
-                    const data = canvas.toDataURL('image/jpeg', 0.6);
+                    const data = canvas.toDataURL('image/jpeg', 0.8); // Better quality
                     
                     // Store image data
                     if(index === 1) img1 = data; else img2 = data;
@@ -688,7 +797,7 @@
                     // Clear file input
                     input.value = '';
                     
-                    debug('Image ' + index + ' processed');
+                    console.log('Image ' + index + ' processed');
                 };
                 imgObj.src = e.target.result;
             };
@@ -839,8 +948,8 @@
     
     // Test data if database is empty
     if (db.length === 0) {
-        // Add sample data for testing
-        const sampleImg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' fill=\'%233b5998\'/%3E%3Ctext x=\'50\' y=\'55\' font-size=\'12\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3ESample%3C/text%3E%3C/svg%3E';
+        // Add sample data for testing with better quality image
+        const sampleImg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%233b5998\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'100\' fill=\'%23ffffff\' opacity=\'0.3\'/%3E%3Ctext x=\'200\' y=\'220\' font-size=\'30\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3EStok%3C/text%3E%3C/svg%3E';
         db.push({
             id: Date.now(),
             nama: "Sample Product",
