@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Stok Strip Pro - Final</title>
     <style>
-        /* CSS REFINED - WITH PINCH ZOOM */
+        /* CSS REFINED - WITH WORKING SWIPE */
         * { 
             margin: 0; 
             padding: 0; 
@@ -310,7 +310,7 @@
             justify-content: center;
         }
 
-        /* MODAL ZOOM - WITH PINCH ZOOM SUPPORT */
+        /* MODAL ZOOM - WITH WORKING SWIPE */
         .modal-full { 
             display: none; 
             position: fixed; 
@@ -320,7 +320,6 @@
             height: 100%; 
             background: rgba(0,0,0,0.95); 
             z-index: 3000; 
-            touch-action: pan-x pan-y; /* Allow touch gestures */
         }
         
         .close-full { 
@@ -373,7 +372,6 @@
             transition: transform 0.1s ease;
             transform-origin: center center;
             cursor: zoom-in;
-            touch-action: none; /* Prevent default touch actions for zoom container */
         }
         
         .zoomable-image.zoomed {
@@ -391,7 +389,40 @@
             border-radius: 20px;
             font-size: 0.9rem;
             z-index: 3200;
-            pointer-events: none; /* Allow clicks to pass through */
+            pointer-events: none;
+        }
+        
+        /* Navigation arrows for desktop */
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 3rem;
+            cursor: pointer;
+            z-index: 3300;
+            padding: 20px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+            display: none;
+        }
+        
+        .nav-arrow:hover {
+            opacity: 1;
+        }
+        
+        .nav-arrow.left {
+            left: 20px;
+        }
+        
+        .nav-arrow.right {
+            right: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .nav-arrow {
+                display: block;
+            }
         }
 
         /* BOTTOM NAV */
@@ -518,9 +549,11 @@
     </div>
 </div>
 
-<!-- ZOOM MODAL WITH PINCH SUPPORT -->
+<!-- ZOOM MODAL WITH WORKING SWIPE -->
 <div id="fullModal" class="modal-full">
     <span class="close-full" onclick="closeZoom()">&times;</span>
+    <div class="nav-arrow left" onclick="navigateSwipe('prev')">&#10094;</div>
+    <div class="nav-arrow right" onclick="navigateSwipe('next')">&#10095;</div>
     <div class="slide-container" id="slide-wrap"></div>
 </div>
 
@@ -539,9 +572,11 @@
     let curCat = "HONDA";
     let img1 = "", img2 = "";
     
-    // Zoom state
+    // Zoom and swipe state
     let currentZoomScale = 1;
     let currentImage = null;
+    let currentImageIndex = 0;
+    let totalImages = 0;
 
     function toggleMenu() { 
         document.getElementById('menuDropdown').classList.toggle('show'); 
@@ -555,6 +590,75 @@
             menu.classList.remove('show');
         }
     });
+
+    // --- SWIPE NAVIGATION FUNCTIONS ---
+    function navigateSwipe(direction) {
+        const slideContainer = document.getElementById('slide-wrap');
+        if (!slideContainer) return;
+        
+        const slideWidth = slideContainer.clientWidth;
+        const currentScroll = slideContainer.scrollLeft;
+        const currentIndex = Math.round(currentScroll / slideWidth);
+        
+        let newIndex;
+        if (direction === 'next') {
+            newIndex = currentIndex + 1;
+        } else {
+            newIndex = currentIndex - 1;
+        }
+        
+        // Check boundaries
+        if (newIndex >= 0 && newIndex < totalImages) {
+            // Smooth scroll to the new slide
+            slideContainer.scrollTo({
+                left: newIndex * slideWidth,
+                behavior: 'smooth'
+            });
+            
+            // Update current index
+            currentImageIndex = newIndex;
+            
+            // Reset zoom on all images
+            resetAllZooms();
+        }
+    }
+    
+    // Track scroll position to update counter
+    function setupScrollTracking() {
+        const slideContainer = document.getElementById('slide-wrap');
+        if (!slideContainer) return;
+        
+        slideContainer.addEventListener('scroll', function() {
+            const slideWidth = this.clientWidth;
+            const scrollPosition = this.scrollLeft;
+            const newIndex = Math.round(scrollPosition / slideWidth);
+            
+            if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < totalImages) {
+                currentImageIndex = newIndex;
+                updateImageCounter();
+                resetAllZooms();
+            }
+        });
+    }
+    
+    function updateImageCounter() {
+        // Update counter in each slide
+        const counters = document.querySelectorAll('.image-counter');
+        counters.forEach((counter, index) => {
+            if (index === currentImageIndex) {
+                counter.textContent = `${currentImageIndex + 1} / ${totalImages}`;
+            }
+        });
+    }
+    
+    function resetAllZooms() {
+        const images = document.querySelectorAll('.zoomable-image');
+        images.forEach(img => {
+            img.style.transform = 'scale(1)';
+            img.classList.remove('zoomed');
+        });
+        currentZoomScale = 1;
+    }
 
     // --- PINCH ZOOM FUNCTIONS ---
     function initializePinchZoom(imgElement) {
@@ -631,7 +735,7 @@
         });
     }
 
-    // --- ZOOM FUNCTION ---
+    // --- ZOOM FUNCTION WITH SWIPE ---
     function showZoom(id) {
         console.log('showZoom called with id:', id);
         
@@ -649,12 +753,16 @@
         if (p.img1) images.push(p.img1);
         if (p.img2 && p.img2.trim() !== '') images.push(p.img2);
         
-        console.log('Number of images:', images.length);
+        totalImages = images.length;
+        console.log('Number of images:', totalImages);
         
-        if (images.length === 0) {
+        if (totalImages === 0) {
             alert('Tidak ada foto untuk produk ini');
             return;
         }
+        
+        // Reset current index
+        currentImageIndex = 0;
         
         // Create slides
         const slideWrap = document.getElementById('slide-wrap');
@@ -671,7 +779,7 @@
                          class="zoomable-image" 
                          alt="Product image ${index + 1}"
                          data-index="${index}">
-                    ${images.length > 1 ? `<div class="image-counter">${index + 1} / ${images.length}</div>` : ''}
+                    ${totalImages > 1 ? `<div class="image-counter">${index + 1} / ${totalImages}</div>` : ''}
                 </div>
             `;
         });
@@ -684,6 +792,9 @@
             images.forEach(img => {
                 initializePinchZoom(img);
             });
+            
+            // Setup scroll tracking for swipe
+            setupScrollTracking();
         }, 100);
         
         // Show modal
@@ -702,11 +813,7 @@
         document.body.style.overflow = ''; // Restore scrolling
         
         // Reset all zoom levels
-        const images = document.querySelectorAll('.zoomable-image');
-        images.forEach(img => {
-            img.style.transform = 'scale(1)';
-            img.classList.remove('zoomed');
-        });
+        resetAllZooms();
         
         console.log('Zoom modal closed');
     }
@@ -717,6 +824,10 @@
         if (modal.style.display === 'block') {
             if (e.key === 'Escape') {
                 closeZoom();
+            } else if (e.key === 'ArrowLeft') {
+                navigateSwipe('prev');
+            } else if (e.key === 'ArrowRight') {
+                navigateSwipe('next');
             }
         }
     });
@@ -776,12 +887,12 @@
                 imgObj.onload = function() {
                     // Compress image
                     const canvas = document.createElement('canvas');
-                    const maxW = 800; // Increased max width for better zoom quality
+                    const maxW = 800;
                     const scale = maxW / imgObj.width;
                     canvas.width = maxW; 
                     canvas.height = imgObj.height * scale;
                     canvas.getContext('2d').drawImage(imgObj, 0, 0, canvas.width, canvas.height);
-                    const data = canvas.toDataURL('image/jpeg', 0.8); // Better quality
+                    const data = canvas.toDataURL('image/jpeg', 0.8);
                     
                     // Store image data
                     if(index === 1) img1 = data; else img2 = data;
@@ -948,14 +1059,16 @@
     
     // Test data if database is empty
     if (db.length === 0) {
-        // Add sample data for testing with better quality image
-        const sampleImg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%233b5998\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'100\' fill=\'%23ffffff\' opacity=\'0.3\'/%3E%3Ctext x=\'200\' y=\'220\' font-size=\'30\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3EStok%3C/text%3E%3C/svg%3E';
+        // Add sample data for testing with multiple images
+        const sampleImg1 = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%233b5998\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'100\' fill=\'%23ff4444\' opacity=\'0.5\'/%3E%3Ctext x=\'200\' y=\'220\' font-size=\'30\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3EFoto 1%3C/text%3E%3C/svg%3E';
+        const sampleImg2 = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%2344aa44\'/%3E%3Ccircle cx=\'200\' cy=\'200\' r=\'100\' fill=\'%234444ff\' opacity=\'0.5\'/%3E%3Ctext x=\'200\' y=\'220\' font-size=\'30\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3EFoto 2%3C/text%3E%3C/svg%3E';
+        
         db.push({
             id: Date.now(),
-            nama: "Sample Product",
+            nama: "Sample Product with 2 Photos",
             kategori: "HONDA",
-            img1: sampleImg,
-            img2: sampleImg,
+            img1: sampleImg1,
+            img2: sampleImg2,
             stok: 10
         });
         localStorage.setItem('stok_strip_v9', JSON.stringify(db));
