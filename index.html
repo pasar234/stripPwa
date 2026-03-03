@@ -3,21 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stok Strip Pro - Secure</title>
+    <title>Stok Strip Pro - No Password</title>
     <style>
-        /* CSS ASLI DENGAN PERBAIKAN SCROLL */
+        /* FIX TOTAL SCROLL */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         
-        /* PERBAIKAN: body diubah agar bisa scroll (overflow: auto) */
-        body { 
+        html, body { 
+            height: 100%; 
             background: #f8fafc; 
-            min-height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow-y: auto; 
+            /* Menghilangkan pengunci scroll */
+            overflow-y: auto !important; 
+            -webkit-overflow-scrolling: touch;
         }
         
-        /* HEADER TETAP DI ATAS (STICKY) */
+        body { 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* HEADER TETAP DI ATAS */
         .header { 
             background: #3b5998; 
             color: white; 
@@ -28,22 +32,15 @@
             position: sticky; 
             top: 0; 
             z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #3b5998; display: flex; align-items: center; justify-content: center;
-            z-index: 9999; color: white; flex-direction: column; padding: 30px;
-        }
-        .login-box { background: white; padding: 25px; border-radius: 20px; width: 100%; max-width: 320px; text-align: center; color: #333; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        .login-input { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; margin: 15px 0; font-size: 20px; text-align: center; }
-        .login-btn { background: #3b5998; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; }
-
-        /* AREA KONTEN AGAR BISA SCROLL */
+        /* KONTEN UTAMA */
         #main-content { 
-            flex: 1; 
+            flex: 1;
             padding: 15px; 
-            display: none; 
+            /* Memastikan area konten bisa memanjang ke bawah */
+            display: block; 
         }
 
         .card { 
@@ -52,9 +49,11 @@
             border-radius: 15px; 
             margin-bottom: 15px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+            border-left: 5px solid #3b5998;
         }
 
-        .menu-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        .menu-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px; }
+        
         .menu-dropdown { 
             display: none; position: absolute; top: 60px; right: 15px; 
             background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); 
@@ -62,52 +61,53 @@
         }
         .menu-dropdown.show { display: block; }
         .menu-item { padding: 15px; border-bottom: 1px solid #f1f5f9; color: #333; cursor: pointer; font-size: 14px; }
-        .menu-item:last-child { border-bottom: none; }
+        .menu-item:active { background: #f1f5f9; }
 
-        /* Tombol Mengapung (Opsional untuk testing scroll) */
-        .add-btn { background: #28a745; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; margin-bottom: 15px; cursor: pointer; }
+        .add-btn { 
+            background: #28a745; color: white; padding: 15px; border-radius: 12px; 
+            text-align: center; font-weight: bold; margin-bottom: 20px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .item-info h3 { font-size: 18px; color: #1e293b; margin-bottom: 5px; }
+        .item-info p { color: #64748b; font-size: 14px; }
+        
+        .delete-btn {
+            background: #fee2e2; color: #ef4444; border: none; 
+            padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+
+        /* Spacer agar item terakhir tidak tertutup tombol navigasi HP */
+        .footer-spacer { height: 100px; }
     </style>
 </head>
 <body>
-
-    <div id="login-screen">
-        <div class="login-box">
-            <h2>STOK STRIP PRO</h2>
-            <input type="password" id="pinInput" class="login-input" placeholder="PIN Keamanan">
-            <button class="login-btn" onclick="checkLogin()">MASUK</button>
-        </div>
-    </div>
 
     <div class="header">
         <div style="font-weight: bold; font-size: 18px;">STOK STRIP PRO</div>
         <button class="menu-btn" onclick="toggleMenu()">⋮</button>
         <div id="menuDropdown" class="menu-dropdown">
-            </div>
+            <div class="menu-item" onclick="backupToClipboard()">📤 Backup ke Clipboard</div>
+            <div class="menu-item" onclick="restoreFromClipboard()">📥 Restore dari Clipboard</div>
+            <div class="menu-item" onclick="backupToFile()">💾 Backup ke File</div>
+            <div class="menu-item" onclick="restoreFromFile()">📂 Restore dari File</div>
+            <div class="menu-item" onclick="location.reload()" style="color: red;">🔄 Segarkan Aplikasi</div>
+        </div>
     </div>
 
     <div id="main-content">
-        <div class="add-btn" onclick="tambahDataManual()">➕ TAMBAH DATA BARANG</div>
+        <div class="add-btn" onclick="tambahBarang()">➕ TAMBAH BARANG BARU</div>
         <div id="item-list">
             </div>
-        <div style="height: 80px;"></div>
+        <div class="footer-spacer"></div>
     </div>
 
 <script>
-    // FUNGSI UTAMA SESUAI FILE ASLI ANDA
-    const STORAGE_KEY = 'stok_strip_data';
-    let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    const STORAGE_KEY = 'stok_strip_data_final';
+    let database = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 
-    function checkLogin() {
-        const input = document.getElementById('pinInput').value;
-        const savedPin = localStorage.getItem('app_pin') || '8989';
-        if (input === savedPin) {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('main-content').style.display = 'block';
-            render();
-        } else {
-            alert("PIN Salah!");
-        }
-    }
+    // Langsung Render (Tanpa Password)
+    render();
 
     function toggleMenu() {
         document.getElementById('menuDropdown').classList.toggle('show');
@@ -116,51 +116,52 @@
     function render() {
         const list = document.getElementById('item-list');
         list.innerHTML = '';
-        if (db.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Belum ada data barang.</p>';
+        
+        if (database.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">Data masih kosong.</div>';
             return;
         }
-        db.forEach((item, index) => {
+
+        database.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <h3 style="color:#333;">${item.nama}</h3>
-                        <p style="color:#666;">Stok: ${item.stok}</p>
+                    <div class="item-info">
+                        <h3>${item.nama}</h3>
+                        <p>Jumlah Stok: ${item.stok}</p>
                     </div>
-                    <button onclick="hapus(${index})" style="background:#fee2e2; color:#ef4444; border:none; padding:8px 12px; border-radius:8px; cursor:pointer;">Hapus</button>
+                    <button class="delete-btn" onclick="hapusBarang(${index})">Hapus</button>
                 </div>
             `;
             list.appendChild(card);
         });
     }
 
-    function tambahDataManual() {
-        const nm = prompt("Nama Barang:");
-        const st = prompt("Jumlah Stok:", "0");
-        if (nm) {
-            db.push({ nama: nm, stok: st });
-            save();
+    function tambahBarang() {
+        const nama = prompt("Nama Barang:");
+        const stok = prompt("Jumlah Stok:", "0");
+        if (nama) {
+            database.push({ nama: nama, stok: stok });
+            simpanKeMemory();
         }
     }
 
-    function hapus(index) {
-        if (confirm("Hapus item ini?")) {
-            db.splice(index, 1);
-            save();
+    function hapusBarang(index) {
+        if (confirm("Hapus barang ini?")) {
+            database.splice(index, 1);
+            simpanKeMemory();
         }
     }
 
-    function save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    function simpanKeMemory() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
         render();
     }
 
-    // FUNGSI BACKUP/RESTORE SESUAI FILE ASLI
+    // FITUR BACKUP & RESTORE
     function backupToFile() {
-        const data = JSON.stringify(db);
-        const blob = new Blob([data], { type: 'application/octet-stream' });
+        const blob = new Blob([JSON.stringify(database)], { type: 'application/octet-stream' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'stok_strip_backup.sqlite';
@@ -173,29 +174,30 @@
         input.onchange = e => {
             const reader = new FileReader();
             reader.onload = ev => {
-                db = JSON.parse(ev.target.result);
-                save();
-                alert("Restore Berhasil!");
+                database = JSON.parse(ev.target.result);
+                simpanKeMemory();
+                alert("Data Berhasil Dipulihkan!");
             };
             reader.readAsText(e.target.files[0]);
         };
         input.click();
     }
 
-    // Inisialisasi Menu Dropdown
-    window.onload = function() {
-        const menu = document.getElementById('menuDropdown');
-        menu.innerHTML = `
-            <div class="menu-item" onclick="navigator.clipboard.writeText(JSON.stringify(db)).then(() => alert('Copy Clipboard Berhasil!'))">📤 Backup ke Clipboard</div>
-            <div class="menu-item" onclick="const p = prompt('Paste data:'); if(p){db=JSON.parse(p); save();}">📥 Restore dari Clipboard</div>
-            <div class="menu-item" onclick="backupToFile()">💾 Backup ke File</div>
-            <div class="menu-item" onclick="restoreFromFile()">📂 Restore dari File</div>
-            <div class="menu-item" onclick="const n = prompt('PIN Baru:'); if(n){localStorage.setItem('app_pin', n); alert('PIN Diganti!');}">🔑 Ganti Password</div>
-            <div class="menu-item" onclick="location.reload()" style="color: red;">🔒 Kunci Aplikasi</div>
-        `;
-    };
+    function backupToClipboard() {
+        navigator.clipboard.writeText(JSON.stringify(database)).then(() => alert("Data dicopy!"));
+    }
 
-    // Tutup menu jika klik luar
+    function restoreFromClipboard() {
+        const txt = prompt("Tempel data backup:");
+        if (txt) { 
+            try {
+                database = JSON.parse(txt); 
+                simpanKeMemory();
+            } catch(e) { alert("Data tidak valid!"); }
+        }
+    }
+
+    // Klik di luar tutup menu
     window.onclick = function(e) {
         if (!e.target.matches('.menu-btn')) {
             document.getElementById('menuDropdown').classList.remove('show');
