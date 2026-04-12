@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Stok Strip Pro - Firebase Sync</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif; 
+        }
+        
+        body { 
+            background: #f1f5f9; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            position: fixed;
+            width: 100%;
+        }
+        
+        #app-content {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .header { 
+            background: #0f172a; 
+            color: white; 
+            padding: 14px 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            font-weight: 700; 
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .sub-header-blue { 
+            background: #2563eb; 
+            color: white; 
+            padding: 8px 20px; 
+            font-weight: 600; 
+            font-size: 0.85rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            gap: 8px; 
+            flex-shrink: 0;
+        }
+        
+        .sync-status {
+            background: rgba(255,255,255,0.2);
+            border-radius: 40px;
+            padding: 4px 12px;
+            font-size: 0.7rem;
+            font-weight: normal;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .menu-btn { 
+            background: rgba(255,255,255,0.15); 
+            border: none; 
+            color: white; 
+            font-size: 1.4rem; 
+            width: 38px; 
+            height: 38px; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: 0.2s;
+        }
+        .menu-btn:active { background: rgba(255,255,255,0.3); }
+        
+        .menu-dropdown { 
+            position: absolute; 
+            top: 65px; 
+            right: 16px; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 35px rgba(0,0,0,0.2); 
+            width: 260px; 
+            z-index: 1000; 
+            display: none; 
+            border: 1px solid #eef2ff; 
+            overflow: hidden; 
+        }
+        .menu-dropdown.show { display: block; }
+        
+        .menu-item { 
+            padding: 14px 18px; 
+            display: flex; 
+            align-items: center; 
+            gap: 14px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            border-bottom: 1px solid #f1f5f9; 
+            color: #1e293b; 
+            transition: 0.2s;
+        }
+        .menu-item:active { background: #f8fafc; }
+
+        .tabs { 
+            display: flex; 
+            background: white; 
+            border-bottom: 1px solid #e2e8f0; 
+            overflow-x: auto; 
+            flex-shrink: 0; 
+        }
+        .tab { 
+            flex: 1; 
+            padding: 14px 5px; 
+            font-weight: 700; 
+            color: #64748b; 
+            border-bottom: 3px solid transparent; 
+            cursor: pointer; 
+            text-align: center; 
+            font-size: 0.8rem; 
+            white-space: nowrap; 
+        }
+        .tab.active { border-bottom: 3px solid #2563eb; color: #2563eb; background: #eff6ff; }
+        
+        .main-content { 
+            flex: 1 1 auto;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 18px;
+            padding-bottom: 90px;
+            height: 0;
+            min-height: 0;
+        }
+        
+        .card { 
+            background: white; 
+            padding: 22px; 
+            border-radius: 28px; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05); 
+        }
+        
+        .form-label { font-weight: 700; font-size: 0.7rem; color: #475569; margin-bottom: 6px; display: block; letter-spacing: 0.3px; }
+        .form-input { width: 100%; padding: 14px; border-radius: 18px; border: 1.5px solid #e2e8f0; margin-bottom: 18px; font-size: 0.95rem; outline: none; transition: 0.2s; background: #fff; }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        
+        .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+        .photo-box { border: 2px dashed #cbd5e1; border-radius: 24px; height: 130px; position: relative; display: flex; align-items: center; justify-content: center; background: #fafcff; cursor: pointer; overflow: hidden; transition: 0.2s; }
+        .photo-box:active { background: #f1f5f9; }
+        .photo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-label { font-size: 0.7rem; font-weight: 600; color: #64748b; background: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 40px; backdrop-filter: blur(4px); }
+        
+        .btn-primary { width: 100%; padding: 16px; background: #2563eb; color: white; border: none; border-radius: 40px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .btn-primary:active { transform: scale(0.97); background: #1d4ed8; }
+        .btn-cancel { width: 100%; padding: 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 40px; font-weight: 600; margin-top: 12px; cursor: pointer; }
+        
+        .product-item { background: white; border-radius: 24px; padding: 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 1px solid #eef2ff; transition: 0.1s; }
+        .prod-img-stack { position: relative; width: 75px; height: 75px; flex-shrink: 0; cursor: pointer; border-radius: 18px; overflow: hidden; background: #f1f5f9; }
+        .prod-img-main { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+        .prod-img-sub { position: absolute; right: -6px; bottom: -6px; width: 38px; height: 38px; border-radius: 12px; border: 2px solid white; object-fit: cover; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+        .prod-info { flex: 1; }
+        .btn-edit-text { color: #3b82f6; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: inline-block; margin-top: 6px; background: #eff6ff; padding: 4px 12px; border-radius: 40px; }
+        .stock-ctrl { display: flex; gap: 8px; flex-shrink: 0; }
+        .btn-s { width: 40px; height: 40px; border-radius: 30px; border: 1px solid #e2e8f0; background: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.1s; display: flex; align-items: center; justify-content: center; }
+        .btn-s:active { background: #f1f5f9; transform: scale(0.94); }
+        
+        /* MODAL ZOOM SUPERIOR - SWIPE + PINCH */
+        .modal-full { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000000e6; backdrop-filter: blur(12px); z-index: 3000; }
+        .close-full { position: absolute; top: 20px; right: 20px; color: white; font-size: 2.4rem; z-index: 3100; font-weight: 300; cursor: pointer; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); border-radius: 60px; transition: 0.2s; }
+        .close-full:active { background: rgba(255,255,255,0.4); }
+        .slide-container { width: 100%; height: 100%; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; scrollbar-width: none; }
+        .slide-container::-webkit-scrollbar { display: none; }
+        .slide-item { min-width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; scroll-snap-align: start; position: relative; touch-action: pan-x pinch-zoom; }
+        .zoomable-image { max-width: 100%; max-height: 90%; object-fit: contain; transition: transform 0.05s linear; cursor: grab; will-change: transform; }
+        .zoomable-image:active { cursor: grabbing; }
+        .image-counter { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 40px; font-size: 0.85rem; font-weight: 500; backdrop-filter: blur(8px); pointer-events: none; z-index: 3200; }
+        .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); color: white; font-size: 3rem; cursor: pointer; z-index: 3300; padding: 16px; opacity: 0.6; transition: 0.2s; display: none; font-weight: 300; }
+        @media (min-width: 768px) { .nav-arrow { display: block; } .nav-arrow:active { opacity: 1; } }
+        .nav-arrow.left { left: 12px; } .nav-arrow.right { right: 12px; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(12px); display: flex; border-top: 1px solid #eef2ff; height: 72px; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-weight: 700; font-size: 0.7rem; gap: 4px; cursor: pointer; transition: 0.1s; }
+        .nav-item.active { color: #2563eb; background: #eff6ff; }
+        .hidden { display: none !important; }
+        .modal-backup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
+        .backup-box { background: white; width: 100%; max-width: 340px; padding: 28px; border-radius: 40px; text-align: center; }
+        #q-search { margin-bottom: 18px; border-radius: 60px; background: #f8fafc; }
+        
+        @keyframes pulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+        .syncing { animation: pulse 0.8s infinite; }
+    </style>
+</head>
+<body>
+
+<div id="app-content">
+    <div class="header">
+        <div>🏍️ Striping Pro • Cloud</div>
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    </div>
+    <div class="sub-header-blue">
+        <span>⚡ MANAJEMEN STOK</span>
+        <span id="syncBadge" class="sync-status">🔄 Sinkron</span>
+    </div>
+
+    <div id="menuDropdown" class="menu-dropdown">
+        <div class="menu-item" onclick="exportToSqlite()">💾 Backup ke File (.sqlite)</div>
+        <div class="menu-item" onclick="showRestoreModal()">📂 Restore dari File</div>
+        <div class="menu-item" onclick="forceSyncFromFirebase()">🔄 Sinkronisasi Manual</div>
+    </div>
+
+    <div id="tabs-container" class="tabs hidden"></div>
+
+    <div class="main-content">
+        <div id="screen-add">
+            <div class="card">
+                <h3 id="form-title" style="margin-bottom:18px;">➕ Tambah Produk</h3>
+                <input type="hidden" id="f-id">
+                <label class="form-label">🏍️ MEREK MOTOR</label>
+                <select id="f-kategori" class="form-input">
+                    <option value="HONDA">HONDA</option><option value="YAMAHA">YAMAHA</option>
+                    <option value="SUZUKI">SUZUKI</option><option value="KAWASAKI">KAWASAKI</option>
+                </select>
+                <label class="form-label">📛 NAMA PRODUK</label>
+                <input type="text" id="f-nama" class="form-input" placeholder="Contoh: Stiker Side Fairing...">
+                
+                <div class="photo-grid">
+                    <div class="photo-box" onclick="triggerFile(1)">
+                        <img id="prev-1" class="hidden">
+                        <div id="lab-1" class="photo-label">📸 FOTO UTAMA</div>
+                        <input type="file" id="in-img-1" accept="image/*" class="hidden" onchange="handleImage(this, 1)">
+                    </div>
+                    <div class="photo-box" onclick="triggerFile(2)">
+                        <img id="prev-2" class="hidden">
+                        <div id="lab-2" class="photo-label">🖼️ FOTO 2 (opsional)</div>
+                        <input type="file" id="in-img-2" accept="image/*" class="hidden" onchange="handleImage(this, 2)">
+                    </div>
+                </div>
+                <button class="btn-primary" id="btn-save" onclick="simpanProduk()">💾 SIMPAN PRODUK</button>
+                <button class="btn-cancel hidden" id="btn-cancel" onclick="resetForm()">BATAL EDIT</button>
+            </div>
+        </div>
+
+        <div id="screen-list" class="hidden">
+            <input type="text" id="q-search" class="form-input" placeholder="🔍 Cari stiker / produk..." oninput="renderProduk()">
+            <div id="list-render"></div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="navKe('add')" id="nav-add"><span>➕</span>TAMBAH</div>
+        <div class="nav-item" onclick="navKe('list')" id="nav-list"><span>📦</span>STOK</div>
+    </div>
+</div>
+
+<!-- ZOOM MODAL with enhanced swipe & pinch -->
+<div id="fullModal" class="modal-full">
+    <span class="close-full" onclick="closeZoomModal()">&times;</span>
+    <div class="nav-arrow left" onclick="swipeGallery('prev')">❮</div>
+    <div class="nav-arrow right" onclick="swipeGallery('next')">❯</div>
+    <div class="slide-container" id="slide-wrap"></div>
+</div>
+
+<div id="modalRestoreFile" class="modal-backup">
+    <div class="backup-box">
+        <h3 style="margin-bottom:15px">📂 Restore Data</h3>
+        <input type="file" id="restore-sqlite-input" accept=".sqlite" style="width:100%; margin-bottom:18px;">
+        <button class="btn-primary" onclick="restoreFromFile()">RESTORE</button>
+        <button onclick="closeRestoreModal()" style="margin-top:12px; background:none; border:none; color:#475569;">Batal</button>
+    </div>
+</div>
+
+<script>
+    // ----------------------------- FIREBASE CONFIG ---------------------------------
+    // GANTI DENGAN KONFIGURASI FIREBASE REAL milik Anda
+    const firebaseConfig = {
+        apiKey: "AIzaSyDummyFirebaseKey1234567890",    // Ganti dengan key asli
+        authDomain: "stokstrip-demo.firebaseapp.com",  // Ganti domain
+        databaseURL: "https://stokstrip-demo-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "stokstrip-demo",
+        storageBucket: "stokstrip-demo.appspot.com",
+        messagingSenderId: "123456789012",
+        appId: "1:123456789012:web:abcdef123456"
+    };
+    // Inisialisasi Firebase jika belum
+    let firebaseApp, database;
+    let isFirebaseReady = false;
+    try {
+        if (!firebase.apps.length) firebaseApp = firebase.initializeApp(firebaseConfig);
+        else firebaseApp = firebase.app();
+        database = firebaseApp.database();
+        isFirebaseReady = true;
+        console.log("Firebase connected");
+    } catch(e) { console.warn("Firebase config error, jalankan offline mode", e); isFirebaseReady = false; }
+
+    // ----------------------------- GLOBAL STATE ---------------------------------
+    let db = [];               // array produk lokal
+    let currentCategory = "HONDA";
+    let img1Base64 = "", img2Base64 = "";
+    let currentZoomImages = [];
+    let currentZoomIndex = 0;
+    let activeTouchTransform = { scale: 1 };
+    let currentModalImg = null;
+
+    // load data dari localStorage sementara
+    function loadLocalData() {
+        const stored = localStorage.getItem('stok_strip_firebase');
+        if(stored) db = JSON.parse(stored);
+        else db = [];
+        if(db.length === 0) initSampleData();
+        renderProduk();
+    }
+    function saveToLocal() { localStorage.setItem('stok_strip_firebase', JSON.stringify(db)); }
+
+    // sinkronisasi ke Firebase (push seluruh data)
+    async function syncToFirebase() {
+        if(!isFirebaseReady) { updateSyncBadge('⚠️ offline'); return; }
+        try {
+            updateSyncBadge('🔄 syncing...');
+            await database.ref('produk_strip').set(db);
+            updateSyncBadge('✅ tersimpan');
+            setTimeout(() => updateSyncBadge('☁️ Cloud'), 1500);
+        } catch(e) { updateSyncBadge('❌ gagal'); console.error(e); }
+    }
+    async function loadFromFirebase() {
+        if(!isFirebaseReady) return;
+        updateSyncBadge('📡 ambil data');
+        try {
+            const snapshot = await database.ref('produk_strip').once('value');
+            const remote = snapshot.val();
+            if(remote && Array.isArray(remote) && remote.length > 0) {
+                db = remote;
+                saveToLocal();
+                renderProduk();
+                updateSyncBadge('✅ sync');
+                setTimeout(() => updateSyncBadge('☁️ Cloud'), 1800);
+            } else { updateSyncBadge('☁️ siap'); }
+        } catch(e) { updateSyncBadge('⚠️ error'); console.warn(e); }
+    }
+    function forceSyncFromFirebase() { loadFromFirebase(); }
+    function updateSyncBadge(text) { const el = document.getElementById('syncBadge'); if(el) el.innerHTML = text; }
+
+    // --- Fungsi setelah ubah data -> simpan lokal + firebase
+    function persistAndSync() {
+        saveToLocal();
+        if(isFirebaseReady) syncToFirebase();
+        if(!document.getElementById('screen-list').classList.contains('hidden')) renderProduk();
+    }
+
+    // Sample data jika kosong
+    function initSampleData() {
+        const demo1 = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect width="200" height="200" fill="%233b82f6"/%3E%3Ctext x="100" y="120" fill="white" font-size="20" text-anchor="middle" font-weight="bold"%3ESTRIP%3C/text%3E%3C/svg%3E';
+        const demo2 = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect width="200" height="200" fill="%23f97316"/%3E%3Ctext x="100" y="120" fill="white" font-size="20" text-anchor="middle"%3E2nd%3C/text%3E%3C/svg%3E';
+        db.push({ id: Date.now(), nama: "Stripe Racing Red", kategori: "HONDA", img1: demo1, img2: demo2, stok: 12 });
+        db.push({ id: Date.now()+1, nama: "Full Body Yamaha", kategori: "YAMAHA", img1: demo1, img2: "", stok: 5 });
+        persistAndSync();
+    }
+
+    // image handler with compression
+    function triggerFile(idx) { document.getElementById('in-img-'+idx).click(); }
+    function handleImage(input, idx) {
+        if(input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const maxSize = 900;
+                    if(width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                    if(idx === 1) img1Base64 = dataUrl;
+                    else img2Base64 = dataUrl;
+                    const preview = document.getElementById('prev-'+idx);
+                    preview.src = dataUrl;
+                    preview.classList.remove('hidden');
+                    document.getElementById('lab-'+idx).classList.add('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function simpanProduk() {
+        const id = document.getElementById('f-id').value;
+        const nama = document.getElementById('f-nama').value.trim();
+        const kategori = document.getElementById('f-kategori').value;
+        if(!nama) { alert("Nama produk wajib!"); return; }
+        if(!img1Base64 && !id) { alert("Foto utama harus diisi!"); return; }
+        if(id) {
+            const idx = db.findIndex(p => p.id == id);
+            if(idx !== -1) db[idx] = { ...db[idx], nama, kategori, img1: img1Base64, img2: img2Base64 };
+        } else {
+            db.push({ id: Date.now(), nama, kategori, img1: img1Base64, img2: img2Base64 || "", stok: 0 });
+        }
+        persistAndSync();
+        resetForm();
+        navKe('list');
+    }
+
+    function editProduk(id) {
+        const p = db.find(x => x.id == id);
+        if(!p) return;
+        document.getElementById('f-id').value = p.id;
+        document.getElementById('f-nama').value = p.nama;
+        document.getElementById('f-kategori').value = p.kategori;
+        img1Base64 = p.img1;
+        img2Base64 = p.img2 || "";
+        document.getElementById('prev-1').src = img1Base64;
+        document.getElementById('prev-1').classList.remove('hidden');
+        document.getElementById('lab-1').classList.add('hidden');
+        if(img2Base64) {
+            document.getElementById('prev-2').src = img2Base64;
+            document.getElementById('prev-2').classList.remove('hidden');
+            document.getElementById('lab-2').classList.add('hidden');
+        } else {
+            document.getElementById('prev-2').classList.add('hidden');
+            document.getElementById('lab-2').classList.remove('hidden');
+        }
+        document.getElementById('form-title').innerText = "✏️ Edit Produk";
+        document.getElementById('btn-cancel').classList.remove('hidden');
+        navKe('add');
+    }
+    function resetForm() {
+        document.getElementById('f-id').value = "";
+        document.getElementById('f-nama').value = "";
+        document.getElementById('f-kategori').value = "HONDA";
+        img1Base64 = ""; img2Base64 = "";
+        document.getElementById('prev-1').classList.add('hidden');
+        document.getElementById('prev-2').classList.add('hidden');
+        document.getElementById('lab-1').classList.remove('hidden');
+        document.getElementById('lab-2').classList.remove('hidden');
+        document.getElementById('form-title').innerText = "➕ Tambah Produk";
+        document.getElementById('btn-cancel').classList.add('hidden');
+        document.getElementById('in-img-1').value = '';
+        document.getElementById('in-img-2').value = '';
+    }
+    function adjustStok(id, delta) {
+        const idx = db.findIndex(p => p.id === id);
+        if(idx !== -1) {
+            const newStok = Math.max(0, (db[idx].stok || 0) + delta);
+            db[idx].stok = newStok;
+            persistAndSync();
+            renderProduk();
+        }
+    }
+    function hapus(id) {
+        if(confirm("Hapus produk ini?")) {
+            db = db.filter(p => p.id !== id);
+            persistAndSync();
+            renderProduk();
+        }
+    }
+    function renderProduk() {
+        const keyword = document.getElementById('q-search')?.value.toLowerCase() || "";
+        const filtered = db.filter(p => p.kategori === currentCategory && p.nama.toLowerCase().includes(keyword));
+        const container = document.getElementById('list-render');
+        if(!container) return;
+        if(filtered.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">✨ Tidak ada produk</div>'; return; }
+        container.innerHTML = filtered.map(item => `
+            <div class="product-item">
+                <div class="prod-img-stack" onclick="openZoomGallery(${item.id})">
+                    <img src="${item.img1}" class="prod-img-main" onerror="this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22100%22%20height%3D%22100%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2255%22%20fill%3D%22%23999%22%20text-anchor%3D%22middle%22%3ENo%20img%3C%2Ftext%3E%3C%2Fsvg%3E'">
+                    ${item.img2 ? `<img src="${item.img2}" class="prod-img-sub">` : ''}
+                </div>
+                <div class="prod-info">
+                    <div style="font-weight:800;">${escapeHtml(item.nama)}</div>
+                    <div style="font-size:0.8rem;">📦 Stok: <b>${item.stok}</b></div>
+                    <div class="btn-edit-text" onclick="editProduk(${item.id})">✏️ EDIT</div>
+                </div>
+                <div class="stock-ctrl">
+                    <button class="btn-s" onclick="adjustStok(${item.id},-1)">−</button>
+                    <button class="btn-s" onclick="adjustStok(${item.id},1)">+</button>
+                    <button class="btn-s" style="background:#fff0f0;color:#dc2626" onclick="hapus(${item.id})">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    // ZOOM GALLERY WITH BETTER SWIPE + PINCH
+    function openZoomGallery(productId) {
+        const product = db.find(p => p.id == productId);
+        if(!product) return;
+        const images = [];
+        if(product.img1) images.push(product.img1);
+        if(product.img2 && product.img2.trim()) images.push(product.img2);
+        if(images.length === 0) return alert("Tidak ada gambar untuk produk ini");
+        currentZoomImages = images;
+        currentZoomIndex = 0;
+        const slideWrap = document.getElementById('slide-wrap');
+        slideWrap.innerHTML = images.map((src, idx) => `
+            <div class="slide-item">
+                <img src="${src}" class="zoomable-image" data-scale="1" style="transform: scale(1);">
+                ${images.length > 1 ? `<div class="image-counter">${idx+1} / ${images.length}</div>` : ''}
+            </div>
+        `).join('');
+        const modal = document.getElementById('fullModal');
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        attachPinchZoomToAll();
+        attachScrollSync();
+        setTimeout(() => { updateCounterByScroll(); }, 100);
+    }
+    function attachPinchZoomToAll() {
+        const images = document.querySelectorAll('.zoomable-image');
+        images.forEach(img => {
+            let scale = 1;
+            let startDist = 0;
+            img.addEventListener('touchstart', (e) => {
+                if(e.touches.length === 2) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    startDist = Math.hypot(dx, dy);
+                    scale = parseFloat(img.style.transform.replace('scale(', '').replace(')', '')) || 1;
+                }
+            });
+            img.addEventListener('touchmove', (e) => {
+                if(e.touches.length === 2 && startDist > 0) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const newDist = Math.hypot(dx, dy);
+                    let newScale = Math.min(4, Math.max(1, scale * (newDist / startDist)));
+                    img.style.transform = `scale(${newScale})`;
+                }
+            });
+            img.addEventListener('touchend', () => { startDist = 0; });
+            img.addEventListener('dblclick', () => { img.style.transform = 'scale(1)'; });
+        });
+    }
+    function attachScrollSync() {
+        const container = document.getElementById('slide-wrap');
+        if(!container) return;
+        const updateIndex = () => {
+            const scrollPos = container.scrollLeft;
+            const slideWidth = container.clientWidth;
+            let idx = Math.round(scrollPos / slideWidth);
+            idx = Math.min(currentZoomImages.length-1, Math.max(0, idx));
+            if(currentZoomIndex !== idx) {
+                currentZoomIndex = idx;
+                updateCounterByScroll();
+                resetAllZoomScales();
+            }
+        };
+        container.addEventListener('scroll', updateIndex);
+    }
+    function updateCounterByScroll() {
+        const counters = document.querySelectorAll('.image-counter');
+        counters.forEach((c, i) => {
+            if(i === currentZoomIndex && currentZoomImages.length > 1) c.innerText = `${currentZoomIndex+1} / ${currentZoomImages.length}`;
+        });
+    }
+    function resetAllZoomScales() {
+        document.querySelectorAll('.zoomable-image').forEach(img => img.style.transform = 'scale(1)');
+    }
+    function swipeGallery(dir) {
+        const container = document.getElementById('slide-wrap');
+        if(!container) return;
+        const slideWidth = container.clientWidth;
+        let newIndex = currentZoomIndex + (dir === 'next' ? 1 : -1);
+        if(newIndex >= 0 && newIndex < currentZoomImages.length) {
+            container.scrollTo({ left: newIndex * slideWidth, behavior: 'smooth' });
+            currentZoomIndex = newIndex;
+            resetAllZoomScales();
+        }
+    }
+    function closeZoomModal() {
+        document.getElementById('fullModal').style.display = 'none';
+        document.body.style.overflow = '';
+        currentZoomImages = [];
+    }
+    // navigation
+    function navKe(page) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(`nav-${page}`).classList.add('active');
+        document.getElementById('screen-add').classList.toggle('hidden', page !== 'add');
+        document.getElementById('screen-list').classList.toggle('hidden', page !== 'list');
+        document.getElementById('tabs-container').classList.toggle('hidden', page !== 'list');
+        if(page === 'list') { renderTabs(); renderProduk(); }
+        else { document.getElementById('q-search').value = ''; }
+    }
+    function renderTabs() {
+        const cats = ["HONDA","YAMAHA","SUZUKI","KAWASAKI"];
+        const container = document.getElementById('tabs-container');
+        if(container) container.innerHTML = cats.map(c => `<div class="tab ${c === currentCategory ? 'active' : ''}" onclick="currentCategory='${c}';renderTabs();renderProduk();">${c}</div>`).join('');
+    }
+    function exportToSqlite() {
+        const dataStr = JSON.stringify({ app: "StokStripPro", version: 2, payload: db });
+        const blob = new Blob([dataStr], {type: 'application/octet-stream'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `stok_backup_${new Date().toISOString().slice(0,10)}.sqlite`;
+        a.click();
+        toggleMenu();
+    }
+    function showRestoreModal() { document.getElementById('modalRestoreFile').style.display = 'flex'; toggleMenu(); }
+    function closeRestoreModal() { document.getElementById('modalRestoreFile').style.display = 'none'; }
+    function restoreFromFile() {
+        const file = document.getElementById('restore-sqlite-input').files[0];
+        if(!file) return alert("Pilih file backup");
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const json = JSON.parse(e.target.result);
+                if(json.app === "StokStripPro" && Array.isArray(json.payload)) {
+                    db = json.payload;
+                    persistAndSync();
+                    alert("Restore sukses!");
+                    closeRestoreModal();
+                    renderProduk();
+                } else alert("Format file tidak valid");
+            } catch(err) { alert("File rusak / bukan backup yang benar"); }
+        };
+        reader.readAsText(file);
+    }
+    function toggleMenu() { document.getElementById('menuDropdown').classList.toggle('show'); }
+    document.addEventListener('click', (e) => { const m = document.getElementById('menuDropdown'); if(m && !m.contains(e.target) && !e.target.classList?.contains('menu-btn')) m.classList.remove('show'); });
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && document.getElementById('fullModal').style.display === 'block') closeZoomModal(); });
+    loadLocalData();
+    if(isFirebaseReady) loadFromFirebase();
+    navKe('add');
+</script>
+</body>
+</html>
